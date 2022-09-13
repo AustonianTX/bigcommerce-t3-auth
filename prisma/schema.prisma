@@ -1,0 +1,34 @@
+generator client {
+    provider        = "prisma-client-js"
+    previewFeatures = ["referentialIntegrity"]
+}
+
+datasource db {
+    provider             = "mysql"
+    url                  = env("DATABASE_URL")
+    referentialIntegrity = "prisma"
+}
+
+model storeUsers {
+    id        Int      @id @default(autoincrement()) @db.UnsignedInt
+    userId    Int
+    storeHash String   @db.VarChar(10)
+    isAdmin   Boolean?
+
+    @@unique([userId, storeHash], map: "userId")
+}
+
+model stores {
+    id          Int     @id @default(autoincrement()) @db.UnsignedInt
+    storeHash   String  @unique(map: "storeHash") @db.VarChar(10)
+    accessToken String? @db.Text
+    scope       String? @db.Text
+    apiKey      String? @db.Text
+}
+
+model users {
+    id       Int     @id @default(autoincrement()) @db.UnsignedInt
+    userId   Int     @unique(map: "userId")
+    email    String  @db.Text
+    username String? @db.Text
+}
