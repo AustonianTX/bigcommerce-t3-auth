@@ -44,23 +44,24 @@ export function getBCVerify({ signed_payload_jwt }: QueryParams) {
 export async function setSession(session: SessionProps) {
   db.setUser(session);
   db.setStore(session);
+  db.setStoreUser(session);
 }
 
 export async function getSession({ query: { context = "" } }: NextApiRequest) {
   if (typeof context !== "string") return;
-  const decodedPayload = decodePayload(context);
+  const { context: storeHash, user } = decodePayload(context) as jwt.JwtPayload;
+  const hasUser = await db.hasStoreUser(storeHash, user?.id);
 
-  let decodedContext;
-
-  if (typeof decodedPayload === "string") {
-    decodedContext = decodedPayload;
-  } else {
-    decodedContext = decodedPayload?.context;
+  // Before retrieving session/ hitting APIs, check user
+  if (!hasUser) {
+    throw new Error(
+      "User is not available. Please login or ensure you have access permissions."
+    );
   }
 
-  const accessToken = await db.getStoreToken(decodedContext);
+  const accessToken = await db.getStoreToken(storeHash);
 
-  return { accessToken, storeHash: decodedContext };
+  return { accessToken, storeHash, user };
 }
 
 export async function removeSession(
@@ -70,10 +71,21 @@ export async function removeSession(
   await db.deleteStore(session);
 }
 
-export function encodePayload(context: string) {
-  return jwt.sign({ context }, JWT_KEY!, { expiresIn: "24h" });
+// JWT functions to sign/ verify 'context' query param from /api/auth||load
+export function encodePayload({ user, owner, ...session }: SessionProps) {
+  const contextString = session?.context ?? session?.sub;
+  const context = contextString.split("/")[1] || "";
+
+  return jwt.sign({ context, user, owner }, JWT_KEY!, { expiresIn: "24h" });
 }
 
+// Verifies JWT for getSession (product APIs)
 export function decodePayload(encodedContext: string) {
   return jwt.verify(encodedContext, JWT_KEY!);
+}
+
+// Removes store and storeUser on uninstall
+export async function removeDataStore(session: SessionProps) {
+  await db.deleteStore(session);
+  // await db.deleteUser(session);
 }

@@ -8,6 +8,7 @@ export default async function products(
   try {
     // First, retrieve the session by calling:
     const { accessToken, storeHash } = (await getSession(req)) as any;
+
     // Then, connect the Node API client (to make API calls to BigCommerce)
     const bigcommerce = bigcommerceClient(accessToken, storeHash);
     // For this example, we'll be connecting to the Catalog API

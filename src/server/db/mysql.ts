@@ -68,3 +68,69 @@ export async function deleteStore({ store_hash: storeHash }: SessionProps) {
     },
   });
 }
+
+export async function hasStoreUser(storeHash: string, userId: number) {
+  if (!storeHash || !userId) return null;
+
+  const result = await prisma.storeUsers.findFirst({
+    where: {
+      storeHash,
+      userId,
+    },
+  });
+
+  return !!result;
+}
+
+export async function setStoreUser(session: SessionProps) {
+  const {
+    access_token: accessToken,
+    context,
+    owner,
+    sub,
+    user: { id: userId },
+  } = session;
+  if (!userId) return null;
+
+  const contextString = context ?? sub;
+  const storeHash = contextString?.split("/")[1] || "";
+
+  const storeUser = await prisma.storeUsers.findMany({
+    where: {
+      storeHash,
+      userId,
+    },
+  });
+
+  if (accessToken) {
+    if (!storeUser.length) {
+      await prisma.storeUsers.create({
+        data: {
+          isAdmin: true,
+          storeHash,
+          userId,
+        },
+      });
+    } else if (!storeUser[0]?.isAdmin) {
+      await prisma.storeUsers.updateMany({
+        where: {
+          storeHash,
+          userId,
+        },
+        data: {
+          isAdmin: true,
+        },
+      });
+    }
+  } else {
+    if (!storeUser.length) {
+      await prisma.storeUsers.create({
+        data: {
+          isAdmin: owner?.id === userId,
+          storeHash,
+          userId,
+        },
+      });
+    }
+  }
+}
